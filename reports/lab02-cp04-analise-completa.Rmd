@@ -1,0 +1,95 @@
+---
+title: "Lab 2, CP 4: Análise completa"
+output: html_notebook
+---
+
+```{r message=FALSE, warning=FALSE}
+library(tidyverse)
+library(here)
+library(knitr)
+library("lubridate")
+theme_set(theme_bw())
+```
+
+```{r ETL}
+buscas = read_csv(here::here("data/search_data.csv"))
+```
+
+1. Verificar se existe o caso de usuário buscou e não clicou
+
+```{r}
+
+    buscas %>%
+        # filter((as.numeric(results)) == 0) %>% 
+        ggplot(aes(x = as.Date(session_start_date), y = results)) + 
+        geom_jitter()+
+        scale_x_date('Data', date_labels = "%b %d") + scale_y_log10() +
+        labs(y= "results", title="Figura 1 -") +
+        facet_grid(. ~ group) 
+
+    buscas %>%
+    group_by(data = as.Date(session_start_date)) %>% 
+    summarise(results = median(position_clicked, na.rm = TRUE)) %>%
+    ggplot(aes(x = data, y = results)) + 
+    geom_line() + geom_point()
+ 
+
+   buscas %>%
+    ggplot(aes(x = as.Date(session_start_date), y = position_clicked)) + 
+    geom_jitter()+
+    scale_x_date('Data', date_labels = "%b %d") + scale_y_log10() +
+    labs(y= "results", title="Figura 1 -") 
+
+    buscas %>%
+        filter(num_clicks > 0) %>% # clickthrough rate e obtido quando há uma busca na página e existe um clique em algum resultado.
+        ggplot(aes(x = as.Date(session_start_date), y = search_index, fill = group)) + 
+        geom_col(position = "dodge") +
+        scale_x_date('Data', date_labels = "%b %d") +
+        labs(y= "proporção de clickthrough", title="Figura 2 -") 
+```
+
+```{r}
+
+
+
+
+buscas %>% 
+    mutate(date = round_date(session_start_date, unit = "day")) %>% 
+    count(date, group) %>% 
+    ggplot(aes(x = date, y = n, fill = group)) + 
+    geom_area() 
+
+buscas %>% 
+    mutate(date = round_date(session_start_date, unit = "day")) %>% 
+    count(date, group) %>% 
+    ggplot(aes(x = date, y = n, fill = group)) + 
+    geom_area() 
+
+
+buscas %>% 
+    mutate(date = round_date(session_start_date, unit = "day")) %>% 
+    count(date, group) %>% 
+    ggplot(aes(x = date, y = n)) + 
+    geom_area() +     facet_grid(. ~ group) 
+
+buscas %>% 
+    ggplot(aes(x = results)) + 
+    geom_histogram(binwidth = 5) +
+    facet_grid(. ~ group) 
+
+buscas %>% 
+    ggplot(aes(x = results)) + 
+    geom_histogram(binwidth = 1) +
+    facet_grid(. ~ group) + scale_x_log10()
+
+buscas %>% 
+    ggplot(aes(x = group, y = results, color = group)) + 
+    geom_jitter(alpha = 0.2) + scale_y_log10()
+
+```
+
+```{r}
+buscas %>% 
+    ggplot(aes(x = results)) + 
+    geom_histogram(binwidth = 5) 
+```

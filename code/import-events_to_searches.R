@@ -22,7 +22,8 @@ searches = events %>%
         session_start_timestamp = first(timestamp),
         session_start_date = ymd_hms(first(timestamp)),
         group = first(group), # eventos de uma mesma sessão são de um mesmo grupo
-        results = max(n_results, na.rm = TRUE), # se não houver busca, retorna -Inf
+        results = max(n_results, na.rm = 0), # se não houver busca, retorna -Inf
+        position_clicked = median(result_position, na.rm = TRUE), # se não houver busca, retorna -Inf
         num_clicks = sum(action == "visitPage"), 
         first_click = ifelse(num_clicks == 0, 
                              NA_integer_, 

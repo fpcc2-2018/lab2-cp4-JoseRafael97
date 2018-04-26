@@ -40,5 +40,12 @@ events %>%
 ```
 
 ## Por tipo
+```{r}
 
+events %>% 
+    group_by(group) %>% 
+    count(action, group) %>% 
+    ggplot(aes(x = group, y=action, fill = group)) + 
+    geom_jitter()
+```
 ## Etc.
