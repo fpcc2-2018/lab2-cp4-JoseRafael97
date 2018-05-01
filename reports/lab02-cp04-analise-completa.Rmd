@@ -1,37 +1,108 @@
 ---
-title: "Lab 2, CP 4: Análise completa"
-output: html_notebook
+title: 'Lab 2, CP 4: Análise completa'
+output:
+  html_document:
+    df_print: paged
 ---
 
 ```{r message=FALSE, warning=FALSE}
 library(tidyverse)
+library(scales)
 library(here)
 library(knitr)
 library("lubridate")
 theme_set(theme_bw())
 ```
 
-```{r ETL}
+##Dataset
+
+
+Os dados utilizados durante esssa análise foram coletados por meio do registro de logs dos eventos ocorridos durante interações de usuários no site do Wikipédia no periodo entre 01 a 08 de março no ano 2016. Estes dados foram disponibilizados pela organização sem fins lucrativos que gerencia o site da Wikipédia, a Wikimedia Foundation. 
+
+```{r read}
 buscas = read_csv(here::here("data/search_data.csv"))
 ```
 
-1. Verificar se existe o caso de usuário buscou e não clicou
+A coleta dos dados teve objetivo de identificar diferenças no uso do site por dois diferentes grupos (a e b), cada grupo utilizava um diferente modo de buscar por conteúdo no site. A tabela abaixo apresenta a quantidade de sessões para cada grupo estudado.
+
+
+```{r}
+buscas %>%
+    group_by(grupo = group) %>% 
+    summarise(quantidade_sessao = n())
+```
+
+Nesse contexto, com o objetivo investigar as diferentes formas de buscar por conteúdos no site, eram registradas informações durante a realização de cada evento pelo usuário, possibilitando a obtenção de conhecimentos sobre a ação realizada (busca, clique no resultado da busca, tempo de permânencia na página), quantos resultados foram retornados nas buscas, qual a posição o usuário clicou ao visitar uma páginae e etc.
+
+Para esta análise, os dados foram agrupados considerando cada sessão existente e sumarizando as informações de cada evento no nível de sessão. Desta forma, esta pesquisa propões responder as seguintes perguntas:
+
+1. Qual é a taxa de cliques nos diferendes dias? Como isso varia nos dois grupos?
+2. Considerando os resultados das buscas, o resultado de qual posição os usuário tendem a clicar? Como isso muda durantes os diferentes dias?
+3. Qual é a taxa de buscas com zero resultados? Como isso varia nos dois grupos?
+4. Considerando o tempo aproximado de duração da sessão de cada usuário como o registro do primeiro e último evento, os usuários com maior número de cliques tendem a ter um tempo de sessão maior? Como isso varia nos dois grupos?
+
+A fim de responder essas perguntas, foram identificados alguns pontos a serem considerados durante a análise:
+
+* ***Todos os 8 dias existem sessões contidas entre as faixas de 1h a 0:00h (24h)***;
+* ***Existem sessões que não possuem busca ou páginas visitadas que não apresentam a posição que resultou em seu acesso:*** Estes dois contextos, foram consideradas como inatividade do usuário por mais de 10 min, o que resultou na criação de novas sessões com tais informações ausentes.
+
+Ainda nesse contexto, com o objetivo de responder as perguntas foram utilizadas as seguintes variáriaveos:
+
+* ***num_clicks:*** número de ocorrência do evento de visitar página;
+* ***taxa de cliques:*** proporção de cliques, nas sessões com pelo menos uma página visitada;
+* ***session_start_date:*** data e hora do primeiro evento registrado na sessão;
+* ***group:*** grupo ao qual a sessão pertence, variando entre a e b;
+* ***position_clicked:*** mediana da posição escolhida pelo usuário durantes visitas de páginas em cada sessão.
+
+##Taxa de cliques no decorrer dos dias
+
+Considerando a taxa de cliques diária como a proporção de cliques em todas as sessões e divindo os dados entre os grupos a e b, foi investigada a primeira pergunta. Com base nessa análise, a Figura 1 foi produzida.
+
+```{r}
+buscas %>%
+    group_by(data = as.Date(session_start_date), group) %>% 
+    summarise(taxa_cliques = sum(num_clicks > 0)/n()) %>%
+    ggplot(aes(x = as.Date(data), y = taxa_cliques, fill = group)) + 
+    geom_col(position = "dodge") +
+    scale_x_date('data', date_labels = "%b %d") +
+    labs(y= "proporção da taxa de cliques", title="Figura 1 - Relação entre taxas de cliques e dias para os grupos a e b") 
+```
+
+Com base na Figura 1, é notável que apesar de existirem mais sessões do grupo b, a sua taxa de cliques diária é mais baixa se comparado ao grupo b em todos os dias,  ficando aproximadamente entre 0.1 e 0.2  
+
 
 ```{r}
 
     buscas %>%
-        # filter((as.numeric(results)) == 0) %>% 
+        group_by(data = as.Date(session_start_date)) %>% 
+        summarise(results = median(position_clicked, na.rm = TRUE), results_max = max(position_clicked, na.rm = TRUE)) %>%
+        ggplot(aes(x = data, y = results)) + 
+        geom_line() + geom_point()
+
+    
+    buscas %>%
         ggplot(aes(x = as.Date(session_start_date), y = results)) + 
         geom_jitter()+
-        scale_x_date('Data', date_labels = "%b %d") + scale_y_log10() +
+        scale_x_date('Data', date_labels = "%b %d") +
         labs(y= "results", title="Figura 1 -") +
         facet_grid(. ~ group) 
+    
+     buscas %>%
+        filter(search_index > 0) %>% 
+        group_by(data = as.Date(session_start_date), group) %>% 
+        summarise(zero_results = sum(na.omit(results) == 0)/n()) %>%
+        ggplot(aes(x = as.Date(data), y = zero_results, fill = group)) + 
+        geom_col(position = "dodge") +
+        scale_x_date('Data', date_labels = "%b %d") +
+        labs(y= "proporção de zero results", title="Figura 3 -") 
+
 
     buscas %>%
-    group_by(data = as.Date(session_start_date)) %>% 
-    summarise(results = median(position_clicked, na.rm = TRUE)) %>%
-    ggplot(aes(x = data, y = results)) + 
-    geom_line() + geom_point()
+        group_by(session_durantion_sec, group) %>% 
+        summarise(click_number = sum(na.omit(num_clicks))) %>%
+        ggplot(aes(x = session_durantion_sec , y = click_number, color = group)) + 
+        geom_point() + scale_x_log10(labels = comma) +
+        labs(y= "todo", title="Figura 4 -") 
  
 
    buscas %>%
@@ -40,12 +111,7 @@ buscas = read_csv(here::here("data/search_data.csv"))
     scale_x_date('Data', date_labels = "%b %d") + scale_y_log10() +
     labs(y= "results", title="Figura 1 -") 
 
-    buscas %>%
-        filter(num_clicks > 0) %>% # clickthrough rate e obtido quando há uma busca na página e existe um clique em algum resultado.
-        ggplot(aes(x = as.Date(session_start_date), y = search_index, fill = group)) + 
-        geom_col(position = "dodge") +
-        scale_x_date('Data', date_labels = "%b %d") +
-        labs(y= "proporção de clickthrough", title="Figura 2 -") 
+ 
 ```
 
 ```{r}

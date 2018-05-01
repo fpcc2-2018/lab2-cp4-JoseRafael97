@@ -10,27 +10,26 @@ events = read_csv("https://github.com/wikimedia-research/Discovery-Hiring-Analys
 
 message("Transformando em dados por busca")
 
-events = events %>% 
-    group_by(session_id) %>% 
-    arrange(timestamp) %>% 
-    mutate(search_index = cumsum(action == "searchResultPage")) # contador para as buscas nessa sessão.
 
 searches = events %>% 
-    group_by(session_id, search_index) %>% 
+    group_by(session_id) %>% 
     arrange(timestamp) %>% 
     summarise(
         session_start_timestamp = first(timestamp),
+        session_end_timestamp = ymd_hms(last(timestamp)),
         session_start_date = ymd_hms(first(timestamp)),
+        session_durantion_sec = difftime( ymd_hms(last(na.omit(timestamp))), ymd_hms(first(na.omit(timestamp))), units="secs"),
+        session_durantion_min = difftime( ymd_hms(last(na.omit(timestamp))), ymd_hms(first(na.omit(timestamp))), units="mins"),
         group = first(group), # eventos de uma mesma sessão são de um mesmo grupo
         results = max(n_results, na.rm = 0), # se não houver busca, retorna -Inf
         position_clicked = median(result_position, na.rm = TRUE), # se não houver busca, retorna -Inf
         num_clicks = sum(action == "visitPage"), 
+        search_index = sum(action == "searchResultPage"),
         first_click = ifelse(num_clicks == 0, 
                              NA_integer_, 
                              first(na.omit(result_position))
         )
-    ) %>% 
-    filter(search_index > 0) # Apenas search sessions
+    )  
 
 out_file = here("data/search_data.csv")
 
