@@ -17,7 +17,7 @@ theme_set(theme_bw())
 ##1. Dataset
 
 
-Os dados utilizados durante esssa análise foram coletados por meio do registro de logs dos eventos ocorridos durante interações de usuários no site do Wikipédia no periodo entre 01 a 08 de março no ano 2016. Estes dados foram disponibilizados pela organização sem fins lucrativos que gerencia o site da Wikipédia, a Wikimedia Foundation. 
+Os dados utilizados durante esta análise foram coletados por meio do registro de logs dos eventos ocorridos durante interações de usuários no site do Wikipédia no período entre 01 a 08 de março no ano 2016. Estes dados foram disponibilizados pela organização sem fins lucrativos que gerencia o site da Wikipédia, a Wikimedia Foundation.
 
 ```{r read}
 buscas = read_csv(here::here("data/search_data.csv"))
@@ -25,18 +25,18 @@ buscas = read_csv(here::here("data/search_data.csv"))
 
 A coleta dos dados teve objetivo de identificar diferenças no uso do site por dois diferentes grupos (a e b), cada grupo utilizava um diferente modo de buscar por conteúdo no site. A tabela abaixo apresenta a quantidade de sessões para cada grupo estudado.
 
-
 ```{r}
 buscas %>%
     group_by(grupo = group) %>% 
     summarise(quantidade_sessao = n())
 ```
 
-Nesse contexto, com o objetivo investigar as diferentes formas de buscar por conteúdos no site, eram registradas informações durante a realização de cada evento pelo usuário, possibilitando a obtenção de conhecimentos sobre a ação realizada (busca, clique no resultado da busca, tempo de permânencia na página), quantos resultados foram retornados nas buscas, qual a posição o usuário clicou ao visitar uma páginae e etc.
+Nesse contexto, com o objetivo investigar as diferentes formas de buscar por conteúdos no site, eram registradas informações durante a realização de cada evento pelo usuário, possibilitando a obtenção de conhecimentos sobre a ação realizada (busca, clique no resultado da busca, tempo de permanência na página), quantos resultados foram retornados nas buscas, qual a posição o usuário clicou ao visitar uma página e etc.
 
-Para esta análise, os dados foram agrupados considerando cada sessão existente e sumarizando as informações de cada evento no nível de sessão. Desta forma, esta pesquisa propões responder as seguintes perguntas:
+Para esta análise, os dados foram agrupados considerando cada sessão existente e sumarizando as informações de cada evento no nível de sessão. Desta forma, esta pesquisa propõe responder às seguintes perguntas:
 
-1. Qual é a taxa de cliques nos diferendes dias? Como isso varia nos dois grupos?
+
+1. Qual é a taxa de cliques nos diferentes dias? Como isso varia nos dois grupos?
 2. Considerando os resultados das buscas, o resultado de qual posição os usuário tendem a clicar? Como isso muda durantes os diferentes dias?
 3. Qual é a taxa de buscas com zero resultados? Como isso varia nos dois grupos?
 4. Considerando o tempo aproximado de duração da sessão de cada usuário como o registro do primeiro e último evento, os usuários com maior número de cliques tendem a ter um tempo de sessão maior? Como isso varia nos dois grupos?
@@ -46,7 +46,7 @@ A fim de responder essas perguntas, foram identificados alguns pontos a serem co
 * ***Em todos os 8 dias existem sessões contidas entre as faixas de 1h a 23:59h (24h)***;
 * ***Existem sessões que não possuem busca ou páginas visitadas que não apresentam a posição que resultou em seu acesso:*** Estes dois contextos, foram consideradas como inatividade do usuário por mais de 10 min, o que resultou na criação de novas sessões com tais informações ausentes.
 
-Ainda nesse contexto, com o objetivo de responder as perguntas foram utilizadas as seguintes variáriaveos:
+Ainda nesse contexto, com o objetivo de responder as perguntas foram utilizadas as seguintes variáveis:
 
 * ***num_clicks:*** número de ocorrência do evento de visitar página;
 * ***taxa de cliques:*** proporção de cliques, nas sessões com pelo menos uma página visitada;
@@ -69,9 +69,9 @@ buscas %>%
     labs(y= "proporção da taxa de cliques", title="Figura 1 - Relação entre taxas de cliques e dias para os grupos a e b") 
 ```
 
-Com base na Figura 1, é notável que apesar de existirem mais sessões do grupo b, a sua taxa de cliques diária é mais baixa se comparado ao grupo b em todos os dias, ficando aproximadamente entre 0.1 e 0.2. Já considerando o grupo a proporção da taxa de cliques diária ficou entre 0.6 a 0.68, variando pouco entre os 8 dias. Além disso, é observado que os dias que apresentaram as menores proporções de cliques foram dia 01 de março de 2016 no grupo b e dia 05 de março de 2016 no grupo a. 
+Com base na Figura 1, é notável que apesar de existirem mais sessões do grupo b, a sua taxa de cliques diária é mais baixa se comparado ao grupo b em todos os dias, ficando aproximadamente entre 0.1 e 0.2. Já considerando o grupo a proporção da taxa de cliques diária ficou entre 0.6 a 0.68, variando pouco entre os 8 dias. Além disso, é observado que os dias que apresentaram as menores proporções de cliques foram dia 01 de março de 2016 no grupo b e dia 05 de março de 2016 no grupo a.
 
-Esses resultados, mostram que existem muitos usuários, pricipalmente do grupo b, que parecem não clicam nos itens buscados. Além disso, a baixa proporção pode significar também que muitas das buscas realizadas não retornam opções a serem acessadas. 
+Esses resultados, mostram que existem muitos usuários, pricipalmente do grupo b, que parecem não clicam nos itens buscados. Além disso, a baixa proporção pode significar também que muitas das buscas realizadas não retornam opções a serem acessadas.
 
 ##3. Posição que os usuários mais clicam nos diferentes dias
 
@@ -94,9 +94,10 @@ Com base na data de cada sessão e posição em média que os usuários clicaram
  
 ``` 
 
-Com base na Figura 2 e a tabela acima, é evidente que a primeira posição é a mais clicade dentre os usuários (grupo a e b) em todos os 8 dias avaliados, existindo uma constância nesse aspecto. Além disso, optamos por identificar também os piores casos, onde por meio da Figura 2, é possível perceber que o pior caso entre os dias no grupo a é identificado no dia 01 de março de 2016 (posição acima de 1000) e para o grupo b o piores casos são identificados nos dias 04 e 05 de março de 2016 (posição acima de 10 e abaixo de 1000). Além disso, é perceivel por meio da visualização verificar que no grupo a existe uma maior variação entre os piores casos nos dias. Por fim, no grupo b essa variação é menor, possuindo uma maior constância no que diz respeito ao pior caso do dia. 
+Com base na Figura 2 e a tabela acima, é evidente que a primeira posição é a mais clicada entre os usuários (grupo a e b) em todos os 8 dias avaliados, existindo uma constância nesse aspecto. Além disso, optamos por identificar também os piores casos, onde por meio da Figura 2, é possível perceber que o pior caso entre os dias no grupo a é identificado no dia 01 de março de 2016 (posição acima de 1000) e para o grupo b o piores casos são identificados nos dias 04 e 05 de março de 2016 (posição acima de 10 e abaixo de 1000). Além disso, é perceivel por meio da visualização verificar que no grupo a existe uma maior variação entre os piores casos nos dias. Por fim, no grupo b essa variação é menor, possuindo uma maior constância no que diz respeito ao pior caso do dia.
 
-A grande diferencição entre os grupos a e b no pior caso pode ser influência da diferentes formas de buscas propostas para cada grupo, análisando de forma mais detalhadas os dados, foi verificado que para o grupo b que a posição 35 foi a máxima escolhida e para o grupo a esta posição foi 3972. No entanto, devido a pouca informação acerca das diferenças entre o site utilizado pelo grupo a e b, não podemos confirmar esta afirmação. 
+A grande diferenciação entre os grupos a e b no pior caso pode ser influência da diferentes formas de buscas propostas para cada grupo, analisando de forma mais detalhadas os dados, foi verificado que para o grupo b que a posição 35 foi a máxima escolhida e para o grupo a esta posição foi 3972. No entanto, devido a pouca informação acerca das diferenças entre o site utilizado pelo grupo a e b, não podemos confirmar esta afirmação.
+
 
 ##4. Taxa de buscas com zero resultados
 
@@ -110,8 +111,9 @@ Para tentar responder a pergunta 3, as sessões foram separadas entre os 8 dias 
         ggplot(aes(x = as.Date(data), y = zero_results, fill = group)) + 
         geom_col(position = "dodge") +
         scale_x_date('Data', date_labels = "%b %d") +
-        labs(y= "proporção de zero results", title="Figura 3 -") 
+        labs(y= "proporção de zero results", title="Figura 3 - Proporção de buscas com zero resultados") 
 ```
+
 De acordo com a Figura 3, é possível observar que sessões compostas pelo grupo b apresentam mais resultados com 0 opções (em todos os dias) durante as buscas do quê sessões do grupo a. A proporção de buscas que retornam 0 resultados no grupo b fica entre 0.15 e 0.25 (menos de 10%), variando pouco durante os dias. Já o grupo a possue a proporção de pesquisas com resultados igual a 0 baixo, variando entre 0.4 a 0.7 (menos de 10%). Diante desta análise, é possível concluir que menos de 10% das pesquisas retornam 0 resultados nos dois grupos.
 
 Ainda nesse contexto, é possível verificar também que a menor proporção de buscas com 0 resultados é no dia 04 de marçõ de 2016 para ambos os grupos.
@@ -128,7 +130,6 @@ De acordo com os dados o número de cliques em cada sessão é representado pelo
         labs(x = "tempo da sessão (s)", y = "numero de cliques", title="Figura 4 - Relação entre número de cliques e tempo da sessão") 
 ```
 
-A figura 4 mostra uma alta concentação de sessões com tempo médio de sessão entre 10 e 1000 segundos em ambos os grupos. Já quando em relação aos número de cliques o grupo a possui sua concentração maior entre 0 e 20 cliques e no grupo b este valor fica entre 0 a 3 cliques em sua maior concentração.
+A figura 4 mostra uma alta concentração de sessões com tempo médio de sessão entre 10 e 1000 segundos em ambos os grupos. Já quando em relação aos número de cliques o grupo a possui sua concentração maior entre 0 e 20 cliques e no grupo b este valor fica entre 0 a 3 cliques em sua maior concentração.
 
-Analisando a Figura com enfoque proposto na pergunta 4, não foi possível identificar tal relação, devido a grande dispersão encontrada no grupo a, onde existe sessões com mais de 40 cliques, mas com tempo de sessão entre 1000 a 2000 segundos e existem sessões com tempo de sessão maior de 100.000 segundos e com número de cliques inferior a 20. No grupo b, não foi verificada nenhuma relação nesse contexto, pois é verificável a existência de uma constância no que se refere ao número de cliques variando  entre as faixa de valores 0 a 5. 
-
+Analisando a Figura com enfoque proposto na pergunta 4, não foi possível identificar tal relação, devido a grande dispersão encontrada no grupo a, onde existe sessões com mais de 40 cliques, mas com tempo de sessão entre 1000 a 2000 segundos e existem sessões com tempo de sessão maior de 100.000 segundos e com número de cliques inferior a 20. No grupo b, não foi verificada nenhuma relação nesse contexto, pois é verificável a existência de uma constância no que se refere ao número de cliques variando entre as faixa de valores 0 a 5.
