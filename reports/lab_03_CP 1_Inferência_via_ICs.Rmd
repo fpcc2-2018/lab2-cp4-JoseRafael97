@@ -1,0 +1,235 @@
+---
+title: 'Lab 3, CP 1: Inferência via ICs'
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+library(tidyverse)
+library(scales)
+library(here)
+library(knitr)
+library(boot)
+library("lubridate")
+theme_set(theme_bw())
+```
+
+##1. Dataset
+
+
+Os dados utilizados durante esta análise foram coletados por meio do registro de logs dos eventos ocorridos durante interações de usuários no site do Wikipédia no período entre 01 a 08 de março no ano 2016. Estes dados foram disponibilizados pela organização sem fins lucrativos que gerencia o site da Wikipédia, a Wikimedia Foundation.
+
+```{r read}
+buscas = read_csv(here::here("data/search_data.csv"))
+```
+
+A coleta dos dados teve objetivo de identificar diferenças no uso do site por dois diferentes grupos (a e b), cada grupo utilizava um diferente modo de buscar por conteúdo no site. A tabela abaixo apresenta a quantidade de sessões para cada grupo estudado.
+
+```{r}
+buscas %>%
+    group_by(grupo = group) %>% 
+    summarise(quantidade_sessao = n())
+```
+
+Nesse contexto, com o objetivo investigar as diferentes formas de buscar por conteúdos no site, eram registradas informações durante a realização de cada evento pelo usuário, possibilitando a obtenção de conhecimentos sobre a ação realizada (busca, clique no resultado da busca, tempo de permanência na página), quantos resultados foram retornados nas buscas, qual a posição o usuário clicou ao visitar uma página e etc.
+
+Para esta análise, os dados foram agrupados considerando cada sessão existente e sumarizando as informações de cada evento no nível de sessão. Desta forma, esta pesquisa propõe responder às seguintes perguntas:
+
+
+1. Qual é a taxa de cliques nos diferentes dias? Como isso varia nos dois grupos?
+2. Considerando os resultados das buscas, o resultado de qual posição os usuário tendem a clicar? Como isso muda durantes os diferentes dias?
+3. Qual é a taxa de buscas com zero resultados? Como isso varia nos dois grupos?
+4. Considerando o tempo aproximado de duração da sessão de cada usuário como o registro do primeiro e último evento, os usuários com maior número de cliques tendem a ter um tempo de sessão maior? Como isso varia nos dois grupos?
+
+A fim de responder essas perguntas, foram identificados alguns pontos a serem considerados durante a análise:
+
+* ***Em todos os 8 dias existem sessões contidas entre as faixas de 1h a 23:59h (24h)***;
+* ***Existem sessões que não possuem busca ou páginas visitadas que não apresentam a posição que resultou em seu acesso:*** Estes dois contextos, foram consideradas como inatividade do usuário por mais de 10 min, o que resultou na criação de novas sessões com tais informações ausentes.
+
+Ainda nesse contexto, com o objetivo de responder as perguntas foram utilizadas as seguintes variáveis:
+
+* ***num_clicks:*** número de ocorrência do evento de visitar página;
+* ***taxa de cliques:*** proporção de cliques, nas sessões com pelo menos uma página visitada;
+* ***session_start_date:*** data e hora do primeiro evento registrado na sessão;
+* ***group:*** grupo ao qual a sessão pertence, variando entre a e b;
+* ***position_clicked:*** mediana da posição escolhida pelo usuário durantes visitas de páginas em cada sessão.
+* ***session_durantion_sec:*** tempo de duração da sessão em segundos.
+
+##2. Taxa de cliques no decorrer dos dias
+
+Considerando a taxa de cliques diária como a proporção de cliques em todas as sessões em cada dia e divindo os dados entre os grupos a e b, foi investigada a primeira pergunta. Com base nessa análise, a Figura 1 foi produzida. Ela apresenta os intervalos de confiança (95%) para os 8 dias e os dois grupos contidos nos dados.
+
+```{r}
+
+#Calcula a proporção da taxa de cliques.
+fun.boot <- function(x, i) {
+    sum(x[i]) / length(x[i])
+}
+
+sessoes <- buscas %>% 
+    group_by(session_id) %>% 
+    summarise(
+        data = first(as.Date(session_start_date)),
+        num_clicks = sum(num_clicks) > 0,
+        group = first(group)
+    ) %>% 
+    ungroup()
+
+boot.diagrupo <- sessoes %>%
+    filter(!is.na(num_clicks)) %>%
+    group_by(data,  group) %>%
+    summarise(
+        boot = list(boot(num_clicks, fun.boot, R = 5000))
+    ) 
+
+
+ics.diagrupo <- boot.diagrupo %>% 
+    group_by(data, group) %>% 
+    mutate(
+        ci = list(boot.ci(boot.out = boot[[1]], conf = 0.95, type = "basic")),
+        lower = ci[[1]][[4]][4],
+        upper = ci[[1]][[4]][5]
+    ) 
+
+
+ics.diagrupo %>% 
+  ggplot(aes(x = data, ymin = lower, ymax = upper)) + 
+    geom_errorbar(width = .2) +
+    labs(y= "proporção da taxa de cliques", title="Figura 1 - Intervalo de confiança entre taxas de cliques e dias para os grupos a/b") +
+    facet_grid(group ~ .)
+    
+
+```
+
+Com base na Figura 1, é notável estatisticamente, com 95% de confiança que o grupo a apresenta a sua taxa diária mais elevada (3 vezes) em comparação ao grupo a em todos os 8 dias analisados. Onde os grupos a e b possuem, com 95% de confiança, proporções de taxas de cliques superior 60% (entre 60% a 70%) e inferior a 30% (entre 0% a 25%) respectivamente, considerando todos os dias investigados. Além disso, é observado que os dias que apresentam os intervalos de confiança com as menores proporções de cliques foram os dias 01 de março de 2016 no grupo b e 05 de março de 2016 no grupo a.
+
+Esses resultados, mostram que existem muitos usuários, pricipalmente do grupo b, que parecem não clicar nos itens buscados. Além disso, a baixa proporção, apresentadas nos intervalos de confiança, pode significar que muitas das buscas realizadas não retornam opções a serem acessadas.
+
+Por fim, para provar que existe uma diferença significativa entre as sessões do grupo a e b, a Figura 2 foi produzina. Ela apresenta os intervalos de confiança para reamostragem do grupo a onde de forma aletória foram criadas por meio das sessões do grupo a novos grupos a1 e a2.
+
+```{r}
+
+sessoes <- buscas %>% 
+    group_by(session_id) %>% 
+    summarise(
+        data = first(as.Date(session_start_date)),
+        num_clicks = sum(num_clicks) > 0,
+        group = first(group)
+    ) %>% 
+    ungroup()
+
+sessoes.groupo.a <- sessoes %>% 
+    filter(group == "a")
+
+#indices da metade da amostra de a = chamaremos a1 (existem 29427 sessões com grupo a)
+# criamos amostras de 1:29427  com tamanho de metade disso sendo 14713
+indices.a1 <- sample(1:nrow(sessoes.groupo.a), size =(nrow(sessoes.groupo.a) / 2))
+
+#atribue a1 e a2 as valores de acordo com indice
+sessoes.novosgrupos <- sessoes.groupo.a %>% 
+    mutate(grupo = ifelse(row_number() %in% indices.a1, "a1", "a2"))
+
+boot.diagrupo.a <- sessoes.novosgrupos %>%
+    filter(!is.na(num_clicks)) %>%
+    group_by(data, grupo) %>%
+    summarise(
+        boot = list(boot(num_clicks, fun.boot, R = 2000))
+    ) 
+
+ics.diagrupo.a <- boot.diagrupo.a %>% 
+    group_by(data, grupo) %>% 
+    mutate(
+        ci = list(boot.ci(boot.out = boot[[1]], conf = 0.95, type = "basic")),
+        lower = ci[[1]][[4]][4],
+        upper = ci[[1]][[4]][5]
+    ) %>% 
+    select(-ci)
+
+ics.diagrupo.a %>% 
+  ggplot(aes(x = data, ymin = lower, ymax = upper, color = grupo)) + 
+    geom_errorbar(width = .2) +
+    labs(y= "proporção da taxa de cliques", title="Figura 2 - Intervalo de confiança entre taxas de cliques e dias para os grupos a/a") 
+```
+
+Por meio da visualização, é possível verificar todos os intervalos de a1 e a2 sofreram alguma interseção, logo podemos afirmar com 95% de confiança que a1 está dentro a2 (entre 55% a 70% todos os dias investigados) e que não existe diferença nesses dois grupos criados. Além disso, podemos afirmar que existe uma diferença significativa entre sessões do grupo a e do grupo b.
+
+##3. Posição que os usuários mais clicam nos diferentes dias
+
+Com base na data de cada sessão e posição em média que os usuários clicaram durantes as buscas, a Figura 3 foi desenvolvida, nela é possível verificar com intervalo de confiança de 95% as faixas de valores que a média da posição mais clicada está inserida.
+
+```{r}
+#Calcula a media das posições escolhidas nas buscas.
+fun.boot <- function(x, i) {
+    mean(x[i])
+}
+
+sessoes <- buscas %>% 
+    filter(!is.na(position_clicked)) 
+
+boot.dia <- sessoes %>%
+    group_by(data = as.Date(session_start_date)) %>%
+    summarise(
+        boot = list(boot(position_clicked, fun.boot, R = 5000))
+    ) 
+
+
+ics.dia <- boot.dia %>% 
+    group_by(data) %>% 
+    mutate(
+        ci = list(boot.ci(boot.out = boot[[1]], conf = 0.95, type = "basic")),
+        lower = ci[[1]][[4]][4],
+        upper = ci[[1]][[4]][5]
+    ) 
+
+ics.dia %>% 
+  ggplot(aes(x = data, ymin = lower, ymax = upper)) + 
+    geom_errorbar(width = .2) +
+    labs(y= "média da posição do clique", title="Figura 3 - Intervalo de confiancia da média da posição de cliques por dia") 
+
+``` 
+
+Com base na Figura 2, o intervalo de confiança da média da posição mais clicadas nas buscas pouco se alterá. No entanto, no dia 1 de março foi a data que esse intervalo parece mais variado, ficando entre 10% a 49%. No restantes dos dias, esse intervalo se concentrou entre 1 a 2. Logo podemos afirmar com 95% de confiança, que nos dias 02, 03, 04, 05, 06, 07 de março de 2016 os usuários clicaram em média na posição 2.
+
+##4. Taxa de buscas com zero resultados
+
+Para tentar responder a pergunta 3, as sessões foram separadas entre os 8 dias existentes nos dados. Desta forma, a Figura 4 expõe o intervalo de confiação com a proporção de pesquisas que tiveram zero resultados em cada dia do estudo, considerando essa proporção nos grupos a e b.
+
+```{r}
+#Calcula a proporção da taxa de cliques.
+fun.boot <- function(x, i) {
+    sum(x[i] == 0) / length(x[i])
+}
+
+
+sessoes <- buscas %>% 
+    filter(!is.na(results)) 
+
+boot.diagrupo <- sessoes %>%
+    group_by(data = as.Date(session_start_date),  group) %>%
+    summarise(
+        boot = list(boot(results, fun.boot, R = 5000))
+    ) 
+
+ics.diagrupo <- boot.diagrupo %>% 
+    group_by(data, group) %>% 
+    mutate(
+        ci = list(boot.ci(boot.out = boot[[1]], conf = 0.95, type = "basic")),
+        lower = ci[[1]][[4]][4],
+        upper = ci[[1]][[4]][5]
+    ) 
+
+ics.diagrupo %>% 
+  ggplot(aes(x = data, ymin = lower, ymax = upper)) + 
+    geom_errorbar(width = .2) +
+    labs(y= "proporção de zero results", title="Figura 4 - Intevalos de confiança da proporção de buscas com zero resultados")  +
+    facet_grid(group ~ .)
+
+```
+
+De acordo com a Figura 4, é possível observar que os intervalos de confiança considerando todos os dias variam na proporção de pesquisas com zero resultados entre 17% a 25% no grupo b e entre 0% a 18 no grupo a. Assim, é afirmar com 95% de confiança que no máximo 25% das buscam retornam 0 resultados para ambos os grupos e os diferentes dias.
+
+
+
+
+
