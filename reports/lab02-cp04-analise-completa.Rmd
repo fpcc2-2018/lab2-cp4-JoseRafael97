@@ -78,10 +78,20 @@ Esses resultados, mostram que existem muitos usuários, pricipalmente do grupo b
 Com base na data de cada sessão e posição em média que os usuários clicaram durantes as buscas, a Figura 2 foi desenvolvida, nela é possível verificar a posição mais clicada em média durante os dias e verificar o extremo em cada dia, considerando o pior caso.
 
 ```{r}
+sessoes <- buscas %>% 
+    group_by(session_id) %>% 
+    summarise(
+        data = first(as.Date(session_start_date)),
+        num_clicks = sum(num_clicks) > 0,
+        group = first(group)
+    ) %>% 
+    ungroup()
 
     buscas %>%
         group_by(data = as.Date(session_start_date)) %>% 
         summarise(position_cliked_median = median(na.omit(position_clicked)))
+
+
 
     buscas %>%
         group_by(data = as.Date(session_start_date), group) %>% 

@@ -1,0 +1,191 @@
+---
+title: 'Lab 3, CP 4: Testes de hipótese'
+
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+library(tidyverse)
+library(scales)
+library(here)
+library(knitr)
+library("lubridate")
+library(GGally)
+library(resample)
+library("coin")
+theme_set(theme_bw())
+options(scipen=999)
+```
+
+##1. Dataset
+
+
+Os dados utilizados durante esta análise foram coletados por meio do registro de logs dos eventos ocorridos durante interações de usuários no site do Wikipédia no período entre 01 a 08 de março no ano 2016. Estes dados foram disponibilizados pela organização sem fins lucrativos que gerencia o site da Wikipédia, a Wikimedia Foundation.
+
+```{r read}
+buscas = read_csv(here::here("data/search_data.csv"))
+```
+
+A coleta dos dados teve objetivo de identificar diferenças no uso do site por dois diferentes grupos (a e b), cada grupo utilizava um diferente modo de buscar por conteúdo no site. A tabela abaixo apresenta a quantidade de sessões para cada grupo estudado.
+
+```{r}
+buscas %>%
+    group_by(grupo = group) %>% 
+    summarise(quantidade_sessao = n())
+
+```
+
+Nesse contexto, com o objetivo investigar as diferentes formas de buscar por conteúdos no site, eram registradas informações durante a realização de cada evento pelo usuário, possibilitando a obtenção de conhecimentos sobre a ação realizada (busca, clique no resultado da busca, tempo de permanência na página), quantos resultados foram retornados nas buscas, qual a posição o usuário clicou ao visitar uma página e etc.
+
+Para esta análise, os dados foram agrupados considerando cada sessão existente e sumarizando as informações de cada evento no nível de sessão. Desta forma, esta pesquisa propõe responder às seguintes perguntas:
+
+
+1. Qual é a taxa de cliques nos diferentes dias? Como isso varia nos dois grupos?
+2. Considerando os resultados das buscas, o resultado de qual posição os usuário tendem a clicar? Como isso muda durantes os diferentes dias?
+
+A fim de responder essas perguntas, foram identificados alguns pontos a serem considerados durante a análise:
+
+* ***Em todos os 8 dias existem sessões contidas entre as faixas de 1h a 23:59h (24h)***;
+* ***Existem sessões que não possuem busca ou páginas visitadas que não apresentam a posição que resultou em seu acesso:*** Estes dois contextos, foram consideradas como inatividade do usuário por mais de 10 min, o que resultou na criação de novas sessões com tais informações ausentes.
+
+Ainda nesse contexto, com o objetivo de responder as perguntas foram utilizadas as seguintes variáveis:
+
+* ***num_clicks:*** número de ocorrência do evento de visitar página;
+* ***taxa de cliques:*** proporção de cliques, nas sessões com pelo menos uma página visitada;
+* ***session_start_date:*** data e hora do primeiro evento registrado na sessão;
+* ***group:*** grupo ao qual a sessão pertence, variando entre a e b;
+* ***position_clicked:*** mediana da posição escolhida pelo usuário durantes visitas de páginas em cada sessão.
+* ***session_durantion_sec:*** tempo de duração da sessão em segundos.
+
+##2. Taxa de cliques no decorrer dos dias
+
+Considerando a taxa de cliques diária como a proporção de cliques em todas as sessões em cada dia e divindo os dados entre os grupos a e b, foi investigada a primeira pergunta. Com base nessa análise, a Figura 1 foi produzida.
+
+```{r}
+buscas %>%
+    group_by(data = as.Date(session_start_date), group) %>% 
+    summarise(taxa_cliques = sum(num_clicks > 0)/n()) %>%
+    ggplot(aes(x = as.Date(data), y = taxa_cliques, fill = group)) + 
+    geom_col(position = "dodge") +
+    scale_x_date(date_labels="%b %d", date_breaks  ="1 day") +
+    labs(y= "proporção da taxa de cliques", x= "data", title="Figura 1 - Relação entre taxas de cliques e dias para os grupos a e b") 
+
+```
+Com base na Figura 1, é notável que apesar de existirem mais sessões do grupo b, a sua taxa de cliques diária é mais baixa se comparado ao grupo b em todos os dias, ficando aproximadamente entre 0.1 e 0.2. Já considerando o grupo a proporção da taxa de cliques diária ficou entre 0.6 a 0.68, variando pouco entre os 8 dias. Além disso, é observado que os dias que apresentaram as menores proporções de cliques foram dia 01 de março de 2016 no grupo b e dia 05 de março de 2016 no grupo a.
+
+Com base nos resultados obtidos por meio da Figura 1, foi optado pela realização de testes de hipóteses para verificar se (1) existe uma diferença significativa entre a proporção da taxa de cliques nos grupos a e b e (2) se existe diferença significativa entre as maiores e menores prorpoções apresentadas nos dois grupos entre os dias com a maior e menor proporção da taxa de cliques.
+
+Nesse contexto, inicialmente foi investigado se existia uma diferença significativa entre as prorporções de taxa de cliques do dia 02 (maior proporção) e 05 (menor proporção) de março no grupo a.
+
+```{r}
+fun.select.dia <- function(buscas, data_um_str, data_dois_str, grupo) {
+    return(buscas %>% filter(group == grupo & (as.Date(session_start_date, format= "%Y-%m-%d")  == data_um_str | as.Date(session_start_date, format= "%Y-%m-%d")  == data_dois_str)))
+}
+
+fun.calcula.permutation <- function(data) {
+    return(permutationTest2(data, sum(!is.na(num_clicks) & num_clicks > 0)/length(num_clicks), treatment = as.Date(session_start_date, format= "%Y-%m-%d")))
+}
+
+#dias com maiores e menores proporções respectivamente
+filtra.por.dia.dois.e.cinco.gp.a <- fun.select.dia(buscas ,"2016-03-02", "2016-03-05", 'a')
+pt.por.dia.dois.e.cinco.gp.a = fun.calcula.permutation(filtra.por.dia.dois.e.cinco.gp.a)
+
+df = data.frame(dias_comparados = '02 Março e 05 Março', p_value = c(pt.por.dia.dois.e.cinco.gp.a$stats$PValue), 'grupo' = c('a'))
+df
+```
+
+Por meio da Tabela apresentada acima, é possível identificar um diferença significativa entre a proporções de taxas de cliques encontradas nos dias 02 de março e 05 de março no grupo a, devido seu p-value = 0.0002. Nessa análise, foi considerado significativos p-values com valor inferior a 0.05.
+
+Para o grupo b, foi analisado a existência de  uma diferença significativa entre os dias 05 e 01 de março, respectivamente apresentando a maior e a menor proporção entre todos os dias do grupo. Assim, com objetivo de melhor exposição dos resultados a tabela abaixo foi construída. Nela é possível identificar o p-value encontrado para a relação.
+
+```{r}
+#dias com maiores e menores proporções respectivamente
+filtra.por.dia.cinco.e.um.gp.b <- fun.select.dia(buscas ,"2016-03-05", "2016-03-01", 'b')
+
+pt.por.dia.cinco.e.um.gp.b = fun.calcula.permutation(filtra.por.dia.cinco.e.um.gp.b)
+
+df = data.frame(dias_comparados = '01 Março e 05 Março', p_value = c(pt.por.dia.cinco.e.um.gp.b$stats$PValue), 'grupo' = c('b'))
+df
+```
+
+Da mesmo forma da Tabela mostrada anteriormente, podemos afirmar que existe uma diferença staticamente significativa entre os dias 01 e 05 de março no grupo b.
+
+Com base, nessas afirmações podemos reijeitar ambas e hipoteses nulas e concluir que existe uma diferença significativa entre os dias com maiores e menores proproções de taxas de cliques em ambos os grupos. 
+
+```{r}
+pt = permutationTest2(buscas, sum(num_clicks > 0)/length(num_clicks), treatment = group)
+df = data.frame(dias_comparados = 'grupo a e b', p_value = c(pt$stats$PValue))
+df
+```
+Como é possível observar na Tabela acima, os grupos a e b apresentam uma diferença significativa no que diz respeito a proporção da taxa de cliques (p-value = 0.0002). 
+
+Com base nesses resultados, é notável que as investigações propostas em (1) e (2), apresentaram-se como verdadeiras.
+
+##3. Posição que os usuários mais clicam nos diferentes dias
+
+Com objetivo de verificar a posição média clicada pela amostra, a Figura 2 foi desenvolvida. Ela aprsenta a média da posição clicada para os 8 dias investigados. 
+
+```{r}
+
+buscas %>% 
+    filter(!is.na(position_clicked)) %>% 
+    group_by(data =  as.Date(session_start_date, format= "%Y-%m-%d")) %>%
+    summarise(media = mean(position_clicked)) %>%
+    ggplot(aes(y = media, x = data)) + 
+    geom_point() + geom_line() + 
+    scale_x_date(date_labels="%b %d", date_breaks  ="1 day") +
+    labs(y= "média da posição dos cliques", title="Figura 2 - Média da posição dos cliques no decorrer dos dias") 
+``` 
+
+De acordo com A Figura 2, é possível identificar que 01 de março é dia com média de cliques mais alta em comparação aos demais dias, apresentando uma média de 3.2. Além disso, é notável que na maioria dos dias avaliados, os usuário tedem em média a clicarem entre as posições 1 e 2 dos resultados apresentados durante as buscas. No entanto, no dia 01 de março essa média apresenta uma pequena mudança, onde em média, os usuários clicam mais na posição 3 das buscas.
+
+Nesse contexto, surgiu a necessidade de verificar se existe um diferença significativa no que diz respeito a média do dia 01 de marçoe em comparação com os dias 02, 03, 04, 05, 06, 07 e 08 de março, devido a este apresentar um valor de média mais destoante dentre os demais dias. Para isso, foi utilizado testes de hipóteses, com objetivo de verificar a existência de diferenças entre os  01 de março com os demais dias descritos anteriormente. Assim, a Figura 3, expões os resultados obtidos com a aplicação desses testes, por meios dos p-value dessas relações.
+
+
+```{r}
+
+fun.select.dia <- function(buscas, datr_str) {
+    return(buscas %>% filter(!is.na(position_clicked) & (as.Date(session_start_date, format= "%Y-%m-%d")  == "2016-03-01" | as.Date(session_start_date, format= "%Y-%m-%d")  == datr_str)))
+}
+
+fun.calcula.permutation <- function(data) {
+    return(permutationTest2(data, mean(position_clicked), treatment = as.Date(session_start_date, format= "%Y-%m-%d")))
+}
+
+sessoes.dia.um.e.dia.dois <- fun.select.dia(buscas ,"2016-03-02")
+sessoes.dia.um.e.dia.tres <- fun.select.dia(buscas ,"2016-03-03")
+sessoes.dia.um.e.dia.quatro <- fun.select.dia(buscas ,"2016-03-04")
+sessoes.dia.um.e.dia.cinco <- fun.select.dia(buscas ,"2016-03-05")
+sessoes.dia.um.e.dia.seis <- fun.select.dia(buscas ,"2016-03-06")
+sessoes.dia.um.e.dia.sete <- fun.select.dia(buscas ,"2016-03-07")
+sessoes.dia.um.e.dia.oito <- fun.select.dia(buscas ,"2016-03-08")
+
+pt.dia.um.e.dia.dois = fun.calcula.permutation(sessoes.dia.um.e.dia.dois)
+pt.dia.um.e.dia.tres = fun.calcula.permutation(sessoes.dia.um.e.dia.tres)
+pt.dia.um.e.dia.quatro = fun.calcula.permutation(sessoes.dia.um.e.dia.quatro)
+pt.dia.um.e.dia.cinco = fun.calcula.permutation(sessoes.dia.um.e.dia.cinco)
+pt.dia.um.e.dia.seis = fun.calcula.permutation(sessoes.dia.um.e.dia.seis)
+pt.dia.um.e.dia.sete = fun.calcula.permutation(sessoes.dia.um.e.dia.sete)
+pt.dia.um.e.dia.oito = fun.calcula.permutation(sessoes.dia.um.e.dia.oito)
+
+df = data.frame(data = c('Mar 02', 'Mar 03', 'Mar 04', 'Mar 05', 'Mar 06', 'Mar 07', 'Mar 08'),
+                p_value = c(pt.dia.um.e.dia.dois$stats$PValue, pt.dia.um.e.dia.tres$stats$PValue, pt.dia.um.e.dia.quatro$stats$PValue, pt.dia.um.e.dia.cinco$stats$PValue, pt.dia.um.e.dia.seis$stats$PValue, pt.dia.um.e.dia.sete$stats$PValue, pt.dia.um.e.dia.oito$stats$PValue))
+
+df %>% 
+    ggplot(aes(y = p_value, x = data)) + 
+    geom_point()+
+    labs(y= "p-value", title="Figura 3 - Diferença da média entre o dia 01 de março e os demais dias") 
+``` 
+
+Com base na Figura 3, é possível observar que não existe diferença significativa entre o dia 01 de março e os demais dias comparados, pois o p-value mais baixo encontrado está entre a diferença entre o dia 01 e 02 de março, possuindo um p-value = 0.39, o que não considerado significativo, adotanto como p-value < 0.05 para relações que possam apresentar alguma significância.
+
+##4. Vantagens e Desvantagens de usar Testes de hipóteses em relação a Intervalos de confiança
+
+Apesar que testes de hipóteses apresentarem um único valor para ser análisado (pode ser uma vantagem), o p-value, eles necessitam de certa cautela no seu uso. Ao afirmar que algo é diferente significativo, é importante ter um clara noção do quê é um p-value significativo, pois pode existir diferentes níveis de significância em diferentes contextos. Por exemplo, 0.02 é menos significativo que 0.00002, mas na maioria dos contextos, ambos poderíam ainda sim ser significativos. No mais, é extramamente necessário possuir um cuidado especial na defição do quê é significativo. Além disso, no contexto de leitores pouco entendidos sobre a definição do teste de hipótese utilizado, é possível que o p-value possa ser tornar confuso e até mesmo seja interpretado de maneira errada.
+ 
+Já utilizando dos Intervalos de Confiança, podemos de forma mais clara dizer que um certo valor está ou não em determinada faixa de valores, facilitando o entendimento. Desta forma, é possível aumentar a posibilidade de pessoas que não pertencem ao contexto do trabalho consigam obter um fácil e concreto entendimento acerca da análise.
+
+
+
